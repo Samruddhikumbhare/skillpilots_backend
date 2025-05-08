@@ -14,5 +14,5 @@ RUN chmod +x /app/run-app.sh
 EXPOSE 8081
 
 # Run the script to decide between WAR and JAR
-ENTRYPOINT ["./run-app.sh"]
+ENTRYPOINT ["/bin/sh", "-c", "./run-app.sh"]
 
