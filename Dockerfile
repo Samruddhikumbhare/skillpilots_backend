@@ -1,28 +1,24 @@
-# Use appropriate base image
-FROM eclipse-temurin:17-jdk-jammy as builder
-
+# Stage 1: Builder - creates both JAR and WAR
+FROM maven:3.8.6-eclipse-temurin-17 AS builder
 WORKDIR /app
-COPY . .
-RUN ./mvnw clean package
+COPY pom.xml .
+RUN mvn dependency:go-offline
+COPY src ./src
+RUN mvn package -DskipTests
 
-# Final image
-FROM eclipse-temurin:17-jre-jammy
+# Stage 2: JAR runtime (will use port 8081)
+FROM eclipse-temurin:17-jdk-jammy as jar-app
+ARG JAR_FILE=/app/target/*.jar
+COPY --from=builder ${JAR_FILE} app.jar
+EXPOSE 8081
+ENTRYPOINT ["java", "-jar", "/app.jar", "--server.port=8081"]
 
-ARG PACKAGING_TYPE=jar
-ENV PACKAGING_TYPE=${PACKAGING_TYPE}
-
-WORKDIR /app
-
-# Copy the built artifact based on packaging type
-COPY --from=builder /app/target/*.${PACKAGING_TYPE} app.${PACKAGING_TYPE}
-
-# Expose the default port (will be mapped to 8081)
-EXPOSE 8080
-
-# Command to run based on packaging type
-CMD if [ "$PACKAGING_TYPE" = "war" ]; then \
-        java -jar /app/app.war; \
-    else \
-        java -jar /app/app.jar; \
-    fi
+# Stage 3: WAR runtime (Tomcat 10.1.40 on port 8001)
+FROM tomcat:10.1.40-jdk17-temurin-jammy as war-app
+ARG WAR_FILE=/app/target/*.war
+COPY --from=builder ${WAR_FILE} /usr/local/tomcat/webapps/ROOT.war
+# Update server.xml to change Tomcat's default port
+RUN sed -i 's/port="8080"/port="8001"/' /usr/local/tomcat/conf/server.xml
+EXPOSE 8001
+CMD ["catalina.sh", "run"]
 
