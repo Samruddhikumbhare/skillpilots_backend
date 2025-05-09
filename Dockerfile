@@ -1,18 +1,28 @@
-FROM openjdk:17-jdk-alpine
+# Use appropriate base image
+FROM eclipse-temurin:17-jdk-jammy as builder
 
-# Set working directory
+WORKDIR /app
+COPY . .
+RUN ./mvnw clean package
+
+# Final image
+FROM eclipse-temurin:17-jre-jammy
+
+ARG PACKAGING_TYPE=jar
+ENV PACKAGING_TYPE=${PACKAGING_TYPE}
+
 WORKDIR /app
 
-# Copy the built artifacts (WAR or JAR)
-COPY target/*.jar target/*.war /app/
+# Copy the built artifact based on packaging type
+COPY --from=builder /app/target/*.${PACKAGING_TYPE} app.${PACKAGING_TYPE}
 
-# Add an entry script
-COPY run-app.sh /app/run-app.sh
-RUN chmod +x /app/run-app.sh
+# Expose the default port (will be mapped to 8081)
+EXPOSE 8080
 
-# Expose backend port
-EXPOSE 8081
-
-# Run the script to decide between WAR and JAR
-ENTRYPOINT ["/bin/sh", "-c", "./run-app.sh"]
+# Command to run based on packaging type
+CMD if [ "$PACKAGING_TYPE" = "war" ]; then \
+        java -jar /app/app.war; \
+    else \
+        java -jar /app/app.jar; \
+    fi
 
