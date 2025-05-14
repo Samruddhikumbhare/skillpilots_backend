@@ -1,6 +1,0 @@
-FROM tomcat:10.1.40-jdk17-temurin-jammy
-ARG WAR_FILE=target/*.war
-COPY ${WAR_FILE} /usr/local/tomcat/webapps/ROOT.war
-RUN sed -i 's/port="8080"/port="8001"/' /usr/local/tomcat/conf/server.xml
-EXPOSE 8001
-CMD ["catalina.sh", "run"]
